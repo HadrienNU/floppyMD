@@ -16,15 +16,13 @@ import floppyMD
 
 # Trouver comment on rentre les données
 trj = np.loadtxt("example_2d.trj")
-xva_list = []
-print(trj.shape)
+data = floppyMD.Trajectories(dt=trj[1, 0] - trj[0, 0])
 for i in range(1, trj.shape[1]):
-    xf = vb.xframe(trj[:, i], trj[:, 0] - trj[0, 0])
-    xvaf = vb.compute_va(xf)
-    xva_list.append(xvaf)
+    data.append(trj[:, 1])
 
-model = floppyMD.models.Overdamped()
-estimator = floppyMD.ExactEstimator(model)
+bf = floppyMD.function_basis.Linear().fit(data)
+model = floppyMD.models.OverdampedBF(bf)
+estimator = floppyMD.KramersMoyalEstimator()
 model = estimator.fit_fetch(data)
 
 # To find a correct parametrization of the space
