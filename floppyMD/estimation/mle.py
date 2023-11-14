@@ -36,6 +36,32 @@ class EstimatedResult(object):
         return f"\nparams      | {self.params} \n" f"sample size | {self.sample_size} \n" f"likelihood  | {self.log_like} \n" f"AIC         | {self.aic}\n" f"BIC         | {self.bic}"
 
 
+class CallbackFunctor:
+    """
+    Callback or scipy minimize in order to store history if wanted
+    """
+
+    def __init__(self, obj_fun):
+        """
+        obj_fun is a provided function to extract value from OptimizedResult
+        """
+        self.history = [np.inf]
+        self.sols = []
+        self.num_calls = 0
+        self.obj_fun = obj_fun
+
+    def __call__(self, x):
+        fun_val = self.obj_fun(x)
+        self.num_calls += 1
+        if fun_val < self.history[-1]:
+            self.sols.append(x)
+            self.history.append(fun_val)
+
+    def save_sols(self, filename):
+        sols = np.array([sol for sol in self.sols])
+        np.savetxt(filename, sols)
+
+
 class LikelihoodEstimator(Estimator):
     r"""Base class of all estimators
 
