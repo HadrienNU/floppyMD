@@ -3,6 +3,10 @@ import numpy as np
 from pymle.core.Model import Model1D
 from typing import Union
 
+# TODO: A faire, la réduction de la somme sur les pas de temps doit se faire dans la classe et si on construire des versions efficace on les appelle juste d'un nom différents comme CachedEulerDensity
+# Les classes doivent aussi avoir une manière de rajouter des covariances sur les variables
+# Ecrire tout ça en version ND
+
 
 class TransitionDensity(ABC):
     def __init__(self, model: Model1D):
