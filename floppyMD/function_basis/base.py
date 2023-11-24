@@ -421,7 +421,7 @@ def _unique(s: Sequence) -> Sequence:
     return list(dict.fromkeys(s))
 
 
-class BasisCombiner(Basis):
+class BasisCombiner(Basis):  # TODO A mixer avec ConcatBasis
     """
     Allow to combine features to build composite basis
     """

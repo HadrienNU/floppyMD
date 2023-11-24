@@ -1,9 +1,8 @@
 import numpy as np
 from . import Basis
-from ._data_describe import quick_describe, minimal_describe
 
 
-class LinearBasis(Basis):
+class Linear(Basis):
     """
     Linear function
     """
@@ -13,13 +12,11 @@ class LinearBasis(Basis):
         self.centered = to_center
         self.const_removed = False
 
-    def fit(self, describe_result):
-        if isinstance(describe_result, np.ndarray):
-            describe_result = minimal_describe(describe_result)
-        self.n_output_features_ = describe_result.mean.shape[0]
+    def fit(self, X, y=None):
+        self.n_output_features_ = X.dim
         self.dim_out_basis = 1
         if self.centered:
-            self.mean_ = describe_result.mean
+            self.mean_ = X.stats.mean
         else:
             self.mean_ = np.zeros((self.n_output_features_,))
         return self
@@ -42,7 +39,7 @@ class LinearBasis(Basis):
         return 0.5 * np.power(X, 2)
 
 
-class PolynomialBasis(Basis):
+class Polynomial(Basis):
     """
     Wrapper for numpy polynomial series.
     """
@@ -55,10 +52,8 @@ class PolynomialBasis(Basis):
         self.polynom = polynom
         self.const_removed = remove_const
 
-    def fit(self, describe_result):
-        if isinstance(describe_result, np.ndarray):
-            describe_result = quick_describe(describe_result)
-        self.n_output_features_ = describe_result.mean.shape[0] * self.degree
+    def fit(self, X, y=None):
+        self.n_output_features_ = X.dim * self.degree
         self.dim_out_basis = 1
         return self
 

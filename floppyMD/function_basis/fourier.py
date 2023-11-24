@@ -1,9 +1,8 @@
 import numpy as np
 from . import Basis
-from ._data_describe import quick_describe, minimal_describe
 
 
-class FourierBasis(Basis):
+class Fourier(Basis):
     """
     Fourier series.
     """
@@ -21,10 +20,8 @@ class FourierBasis(Basis):
         self.freq = freq
         self.const_removed = remove_const
 
-    def fit(self, describe_result):
-        if isinstance(describe_result, np.ndarray):
-            describe_result = quick_describe(describe_result)
-        self.n_output_features_ = describe_result.mean.shape[0] * self.order
+    def fit(self, X):
+        self.n_output_features_ = X.dim * self.order
         self.dim_out_basis = 1
         return self
 

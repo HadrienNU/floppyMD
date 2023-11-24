@@ -17,6 +17,8 @@ class KramersMoyalEstimator(Estimator):
     def __init__(self, model=None):
         self._model = model
         # Should check is the model is linear in parameters
+        if not self._model.is_linear:
+            raise ValueError("Cannot fit Karmers Moyal if the model is not linear in its parameters")
 
     def fit(self, data, **kwargs):
         r"""Fits data to the estimator's internal :class:`Model` and overwrites it. This way, every call to

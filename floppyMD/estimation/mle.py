@@ -72,11 +72,13 @@ class LikelihoodEstimator(Estimator):
         capable of updating models, this can be used to resume the estimation process.
     """
 
-    def __init__(self, model=None):
+    def __init__(self, model, transition, **kwargs):
         super().__init__(model)
-        # Should check is the model is linear in parameters
+        self.transition = transition
+        self.transition.model = self.model
+        self._likelihood = self._likelihood_serial
 
-    def fit(self, data, minimizer=None, **kwargs):
+    def fit(self, data, minimizer=None, params0=None, **kwargs):
         r"""Fits data to the estimator's internal :class:`Model` and overwrites it. This way, every call to
         :meth:`fetch_model` yields an autonomous model instance. Sometimes a :code:`partial_fit` method is available,
         in which case the model can get updated by the estimator.
@@ -95,37 +97,36 @@ class LikelihoodEstimator(Estimator):
         """
         if minimizer is None:
             minimizer = minimize
-        res = minimizer(self._likelihood, bounds=self._param_bounds, guess=params0)
-        params = res.params
+        if params0 is None:
+            raise NotImplementedError  # We could use then an exact estimation
+        res = minimizer(self._likelihood, params0, args=(data, data.dt), method="BFGS")
+        params = res.x
 
-        final_like = -res.value
+        final_like = -res.fun
 
         self.model.params = params
 
-        self.results_ = EstimatedResult(params=params, log_like=final_like, sample_size=len(self._sample) - 1)
+        self.results_ = EstimatedResult(params=params, log_like=final_like, sample_size=data.nobs - 1)
 
         return self
 
-    def _likelihood_serial(self, params, data):
+    def _likelihood_serial(self, params, data, dt, **kwargs):
+        """
+        Sum over trajectories
+        """
+        return np.sum([self._log_likelihood_negative(params, trj, dt) for trj in data])
+
+    def _likelihood_parallel(self, params, data, dt, **kwargs):
         """
         Sum over trajectories
         """
 
-    def _likelihood_parallel(self, params, data):
-        """
-        Sum over trajectories
-        """
-
-
-class TransitionDensityEstimator(LikelihoodEstimator):
-    def __init__(self, model, transition, **kwargs):
-        super().__init__(model)
-
-    def _log_likelihood_negative(self, data):
+    def _log_likelihood_negative(self, params, data, dt, **kwargs):
         """ """
+        return self.transition(params, data, dt)
 
 
-class ELBOEstimator(TransitionDensityEstimator):
+class ELBOEstimator(LikelihoodEstimator):
     """
     Maximize the Evidence lower bound.
     Similar to EM estimation but the expectation is realized inside the minimization loop

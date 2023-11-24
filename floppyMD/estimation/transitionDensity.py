@@ -9,22 +9,26 @@ from typing import Union
 
 
 class TransitionDensity(ABC):
-    def __init__(self, model: Model1D):
+    def __init__(self):
         """
         Class which represents the transition density for a model, and implements a __call__ method to evalute the
         transition density (bound to the model)
 
         :param model: the SDE model, referenced during calls to the transition density
         """
-        self._model = model
+        self._min_prob = 1e-30  # used to floor probabilities when evaluating the log
 
     @property
-    def model(self) -> Model1D:
+    def model(self):
         """Access to the underlying model"""
         return self._model
 
+    @model.setter
+    def model(self, model):
+        self._model = model
+
     @abstractmethod
-    def __call__(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """
         The transition density evaluated at these arguments
         :param x0: float or array, the current value
@@ -35,16 +39,23 @@ class TransitionDensity(ABC):
         """
         raise NotImplementedError
 
+    def __call__(self, params, trj, dt):
+        """
+        Compute Likelihood of one trajectory
+        """
+        self._model.params = params
+        return -np.sum(np.log(np.maximum(self._min_prob, self._density(x0=trj[:-1], xt=trj[1:], t0=0.0, dt=dt))))
+
 
 class ExactDensity(TransitionDensity):
-    def __init__(self, model: Model1D):
+    def __init__(self):
         """
         Class which represents the exact transition density for a model (when available)
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__(model=model)
+        super().__init__()
 
-    def __call__(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
+    def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
         The exact transition density (when applicable)
         Note: this will raise exception if the model does not implement exact_density
@@ -58,14 +69,14 @@ class ExactDensity(TransitionDensity):
 
 
 class EulerDensity(TransitionDensity):
-    def __init__(self, model: Model1D):
+    def __init__(self):
         """
         Class which represents the Euler approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__(model=model)
+        super().__init__()
 
-    def __call__(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
+    def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
         The transition density obtained via Euler expansion
         :param x0: float or array, the current value
@@ -75,19 +86,19 @@ class EulerDensity(TransitionDensity):
         :return: probability (same dimension as x0 and xt)
         """
         sig2t = (self._model.diffusion(x0, t0) ** 2) * 2 * dt
-        mut = x0 + self._model.drift(x0, t0) * dt
+        mut = x0 + self._model.force(x0, t0) * dt
         return np.exp(-((xt - mut) ** 2) / sig2t) / np.sqrt(np.pi * sig2t)
 
 
 class OzakiDensity(TransitionDensity):
-    def __init__(self, model: Model1D):
+    def __init__(self):
         """
         Class which represents the Ozaki approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__(model=model)
+        super().__init__()
 
-    def __call__(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
+    def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
         The transition density obtained via Ozaki expansion
         :param x0: float or array, the current value
@@ -97,8 +108,8 @@ class OzakiDensity(TransitionDensity):
         :return: probability (same dimension as x0 and xt)
         """
         sig = self._model.diffusion(x0, t0)
-        mu = self._model.drift(x0, t0)
-        mu_x = self._model.drift_x(x0, t0)
+        mu = self._model.force(x0, t0)
+        mu_x = self._model.force_x(x0, t0)
         temp = mu * (np.exp(mu_x * dt) - 1) / mu_x
 
         Mt = x0 + temp
@@ -109,14 +120,14 @@ class OzakiDensity(TransitionDensity):
 
 
 class ShojiOzakiDensity(TransitionDensity):
-    def __init__(self, model: Model1D):
+    def __init__(self):
         """
         Class which represents the Shoji-Ozaki approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__(model=model)
+        super().__init__()
 
-    def __call__(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
+    def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
         The transition density obtained via Shoji-Ozaki expansion
         :param x0: float or array, the current value
@@ -126,10 +137,10 @@ class ShojiOzakiDensity(TransitionDensity):
         :return: probability (same dimension as x0 and xt)
         """
         sig = self._model.diffusion(x0, t0)
-        mu = self._model.drift(x0, t0)
+        mu = self._model.force(x0, t0)
 
-        Mt = 0.5 * sig**2 * self._model.drift_xx(x0, t0) + self._model.drift_t(x0, t0)
-        Lt = self._model.drift_x(x0, t0)
+        Mt = 0.5 * sig**2 * self._model.force_xx(x0, t0) + self._model.force_t(x0, t0)
+        Lt = self._model.force_x(x0, t0)
         if (Lt == 0).any():  # TODO: need to fix this
             B = sig * np.sqrt(dt)
             A = x0 + mu * dt + Mt * dt**2 / 2
@@ -143,14 +154,14 @@ class ShojiOzakiDensity(TransitionDensity):
 
 
 class ElerianDensity(EulerDensity):
-    def __init__(self, model: Model1D):
+    def __init__(self):
         """
         Class which represents the Elerian (Milstein) approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__(model=model)
+        super().__init__()
 
-    def __call__(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
+    def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
         The transition density obtained via Milstein Expansion (Elarian density).
         When d(sigma)/dx = 0, reduces to Euler
@@ -165,7 +176,7 @@ class ElerianDensity(EulerDensity):
             return super().__call__(x0=x0, xt=xt, t0=t0, dt=dt)
 
         sig = self._model.diffusion(x0, t0)
-        mu = self._model.drift(x0, t0)
+        mu = self._model.force(x0, t0)
 
         A = sig * sig_x * dt * 0.5
         B = -0.5 * sig / sig_x + x0 + mu * dt - A
@@ -179,14 +190,14 @@ class ElerianDensity(EulerDensity):
 
 
 class KesslerDensity(EulerDensity):
-    def __init__(self, model: Model1D):
+    def __init__(self):
         """
         Class which represents the Kessler approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__(model=model)
+        super().__init__()
 
-    def __call__(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
+    def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
         The transition density obtained via Kessler expansion
         :param x0: float or array, the current value
@@ -198,8 +209,8 @@ class KesslerDensity(EulerDensity):
         sig2 = sig**2
         sig_x = self._model.diffusion_x(x0, t0)
         sig_xx = self._model.diffusion_xx(x0, t0)
-        mu = self._model.drift(x0, t0)
-        mu_x = self._model.drift_x(x0, t0)
+        mu = self._model.force(x0, t0)
+        mu_x = self._model.force_x(x0, t0)
 
         d = dt**2 / 2
         E = x0 + mu * dt + (mu * mu_x + 0.5 * sig2 * sig_xx) * d
@@ -211,14 +222,14 @@ class KesslerDensity(EulerDensity):
 
 
 class AitSahaliaDensity(TransitionDensity):
-    def __init__(self, model: Model1D):
+    def __init__(self):
         """
         Class which represents the Ait-Sahalia approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__(model=model)
+        super().__init__()
 
-    def __call__(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
+    def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
         The transition density obtained via Euler expansion
         :param x0: float or array, the current value
