@@ -75,19 +75,17 @@ class BSplines(Basis):  # TODO replace current implementation by one using Bspli
         self.const_removed = remove_const
         self.dim_out_basis = 1
 
-    def fit(self, describe_result, knots=None):
-        if isinstance(describe_result, np.ndarray):
-            describe_result = minimal_describe(describe_result)
-        dim = describe_result.mean.shape[0]
+    def fit(self, X, knots=None):
+        dim = X.dim
         # TODO determine non uniform position of knots given the datas
         if knots is None:
-            knots = np.linspace(describe_result.minmax[0], describe_result.minmax[1], self.n_knots)
+            knots = np.linspace(X.stats.min, X.stats.max, self.n_knots)
         self.bsplines_ = _get_bspline_basis(knots, self.k, periodic=self.periodic)
         self._nsplines = len(self.bsplines_)
         self.n_output_features_ = len(self.bsplines_) * dim
         return self
 
-    def basis(self, X):
+    def transform(self, X):
         nsamples, dim = X.shape
         features = np.zeros((nsamples, self.n_output_features_))
         for ispline, spline in enumerate(self.bsplines_):

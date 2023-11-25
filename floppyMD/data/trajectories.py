@@ -1,6 +1,6 @@
 import collections
 import numpy as np
-from ._data_statistics import DescribeResult, sum_describe
+from ._data_statistics import traj_stats, sum_stats
 
 
 class Trajectories(collections.MutableSequence):
@@ -8,7 +8,7 @@ class Trajectories(collections.MutableSequence):
         self.dt = dt
         self.trajectories_data = []
         self.dim = 1
-        self.describe_data = None
+        self.stats_data = None
 
     def __len__(self):
         return len(self.trajectories_data)
@@ -33,9 +33,11 @@ class Trajectories(collections.MutableSequence):
         """
         Basic statistics on the data
         """
-        if self.describe_data is None:
-            self.describe_data = DescribeResult(self.nobs, (np.zeros(self.dim), np.zeros(self.dim)), np.mean([np.mean(trj, axis=0) for trj in self.trajectories_data]), np.zeros(self.dim))
-        return self.describe_data
+        if self.stats_data is None:
+            self.stats_data = traj_stats(self.trajectories_data[0])
+            for trj in self.trajectories_data[1:]:
+                self.stats_data = sum_stats(self.stats_data, traj_stats(trj))
+        return self.stats_data
 
     @property
     def nobs(self):

@@ -99,7 +99,7 @@ class LikelihoodEstimator(Estimator):
             minimizer = minimize
         if params0 is None:
             raise NotImplementedError  # We could use then an exact estimation
-        res = minimizer(self._likelihood, params0, args=(data, data.dt), method="BFGS")
+        res = minimizer(self._likelihood, params0, args=(data, data.dt), method="L-BFGS-B")
         params = res.x
 
         final_like = -res.fun
