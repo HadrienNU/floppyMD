@@ -20,10 +20,10 @@ data = floppyMD.Trajectories(dt=trj[1, 0] - trj[0, 0])
 for i in range(1, trj.shape[1]):
     data.append(trj[:, 1:2])
 
-bf = floppyMD.function_basis.BSplines(n_knots=5).fit(data)
+bf = floppyMD.function_basis.Linear().fit(data)
 model = floppyMD.models.OverdampedBF(bf)
-estimator = floppyMD.LikelihoodEstimator(model, floppyMD.EulerDensity())
-model = estimator.fit_fetch(data, params0=[1.0] * bf.n_output_features_ + [1.0] * bf.n_output_features_)
+estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerDensity(model))
+model = estimator.fit_fetch(data, params0=[1.0, 1.0])
 
 # To find a correct parametrization of the space
 bins = np.histogram_bin_edges(data[0], bins=15)

@@ -72,10 +72,9 @@ class LikelihoodEstimator(Estimator):
         capable of updating models, this can be used to resume the estimation process.
     """
 
-    def __init__(self, model, transition, **kwargs):
-        super().__init__(model)
+    def __init__(self, transition, **kwargs):
+        super().__init__(transition.model)
         self.transition = transition
-        self.transition.model = self.model
         self._likelihood = self._likelihood_serial
 
     def fit(self, data, minimizer=None, params0=None, **kwargs):
@@ -105,6 +104,7 @@ class LikelihoodEstimator(Estimator):
         final_like = -res.fun
 
         self.model.params = params
+        self.model.fitted_ = True
 
         self.results_ = EstimatedResult(params=params, log_like=final_like, sample_size=data.nobs - 1)
 

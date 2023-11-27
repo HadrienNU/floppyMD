@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import numpy as np
-from pymle.core.Model import Model1D
 from typing import Union
 
 # TODO: A faire, la réduction de la somme sur les pas de temps doit se faire dans la classe et si on construire des versions efficace on les appelle juste d'un nom différents comme CachedEulerDensity
@@ -9,13 +8,14 @@ from typing import Union
 
 
 class TransitionDensity(ABC):
-    def __init__(self):
+    def __init__(self, model):
         """
         Class which represents the transition density for a model, and implements a __call__ method to evalute the
         transition density (bound to the model)
 
         :param model: the SDE model, referenced during calls to the transition density
         """
+        self._model = model
         self._min_prob = 1e-30  # used to floor probabilities when evaluating the log
 
     @property
@@ -48,12 +48,12 @@ class TransitionDensity(ABC):
 
 
 class ExactDensity(TransitionDensity):
-    def __init__(self):
+    def __init__(self, model):
         """
         Class which represents the exact transition density for a model (when available)
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__()
+        super().__init__(model)
 
     def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
@@ -69,12 +69,12 @@ class ExactDensity(TransitionDensity):
 
 
 class EulerDensity(TransitionDensity):
-    def __init__(self):
+    def __init__(self, model):
         """
         Class which represents the Euler approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__()
+        super().__init__(model)
 
     def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
@@ -91,12 +91,12 @@ class EulerDensity(TransitionDensity):
 
 
 class OzakiDensity(TransitionDensity):
-    def __init__(self):
+    def __init__(self, model):
         """
         Class which represents the Ozaki approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__()
+        super().__init__(model)
 
     def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
@@ -120,12 +120,12 @@ class OzakiDensity(TransitionDensity):
 
 
 class ShojiOzakiDensity(TransitionDensity):
-    def __init__(self):
+    def __init__(self, model):
         """
         Class which represents the Shoji-Ozaki approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__()
+        super().__init__(model)
 
     def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
@@ -154,12 +154,12 @@ class ShojiOzakiDensity(TransitionDensity):
 
 
 class ElerianDensity(EulerDensity):
-    def __init__(self):
+    def __init__(self, model):
         """
         Class which represents the Elerian (Milstein) approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__()
+        super().__init__(model)
 
     def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
@@ -190,12 +190,12 @@ class ElerianDensity(EulerDensity):
 
 
 class KesslerDensity(EulerDensity):
-    def __init__(self):
+    def __init__(self, model):
         """
         Class which represents the Kessler approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__()
+        super().__init__(model)
 
     def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """
@@ -222,12 +222,12 @@ class KesslerDensity(EulerDensity):
 
 
 class AitSahaliaDensity(TransitionDensity):
-    def __init__(self):
+    def __init__(self, model):
         """
         Class which represents the Ait-Sahalia approximation transition density for a model
         :param model: the SDE model, referenced during calls to the transition density
         """
-        super().__init__()
+        super().__init__(model)
 
     def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: float) -> Union[float, np.ndarray]:
         """

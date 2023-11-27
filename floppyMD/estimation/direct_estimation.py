@@ -15,7 +15,7 @@ class KramersMoyalEstimator(Estimator):
     """
 
     def __init__(self, model=None):
-        self._model = model
+        super().__init__(model)
         # Should check is the model is linear in parameters
         if not self._model.is_linear:
             raise ValueError("Cannot fit Karmers Moyal if the model is not linear in its parameters")
@@ -38,4 +38,5 @@ class KramersMoyalEstimator(Estimator):
             Reference to self.
         """
 
+        self.model.fitted_ = True
         return self

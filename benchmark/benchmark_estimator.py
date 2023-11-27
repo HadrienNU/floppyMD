@@ -19,18 +19,10 @@ def data(request):
 
 
 @pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
-def test_direct_estimator(data, request):
-    bf = floppyMD.function_basis.Linear().fit(data)
-    model = floppyMD.models.OverdampedBF(bf)
-    estimator = floppyMD.KramersMoyalEstimator(model)
-    model = estimator.fit_fetch(data)
-    assert model._fitted
-
-
-@pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
-def test_likelihood_estimator(data, request):
+def test_likelihood_optimization(data, request, benchmark):
     bf = floppyMD.function_basis.Linear().fit(data)
     model = floppyMD.models.OverdampedBF(bf)
     estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerDensity(model))
-    model = estimator.fit_fetch(data, params0=[1.0, 1.0])
+    fitted_estimator = benchmark(estimator.fit, data, params0=[1.0, 1.0])
+    model = fitted_estimator.fit_fetch(data)
     assert model._fitted

@@ -252,3 +252,46 @@ class OverdampedBF(ModelOverdamped):
 
     def is_linear(self):
         return True
+
+
+class OverdampedFreeEnergy(ModelOverdamped):
+    """
+    TODO: A class that implement a overdamped model with a given free energy
+    """
+
+    def __init__(self, knots, **kwargs):
+        super().__init__()
+        self.basis = basis
+        self._size_basis = self.basis.n_output_features_
+
+    def evaluate_basis(self, x):
+        """
+        Get access to basis
+        """
+
+    def force(self, x, t: float = 0.0):
+        return np.dot(self.basis(x), self._params[: self._size_basis]).reshape(-1, 1)
+
+    def diffusion(self, x, t: float = 0.0):
+        return np.dot(self.basis(x), self._params[self._size_basis :]).reshape(-1, 1)
+
+    def force_t(self, x, t: float = 0.0):
+        return 0.0
+
+    def force_x(self, x, t: float = 0.0):
+        return np.dot(self._params[: self._size_basis], self.basis.derivative(x))
+
+    def force_xx(self, x, t: float = 0.0):
+        return np.dot(self._params[: self._size_basis], self.basis.hessian(x))
+
+    def diffusion_t(self, x, t: float = 0.0):
+        return 0.0
+
+    def diffusion_x(self, x, t: float = 0.0):
+        return np.dot(self._params[self._size_basis :], self.basis.derivative(x))
+
+    def diffusion_xx(self, x, t: float = 0.0):
+        return np.dot(self._params[self._size_basis :], self.basis.hessian(x))
+
+    def is_linear(self):
+        return True
