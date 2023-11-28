@@ -1,3 +1,7 @@
+"""
+The code in this file was originnaly adapted from pymle (https://github.com/jkirkby3/pymle)
+"""
+
 import numpy as np
 from scipy.optimize import minimize
 
@@ -94,6 +98,11 @@ class LikelihoodEstimator(Estimator):
         self : Estimator
             Reference to self.
         """
+
+        if self.transition.do_preprocess_traj:
+            for i, trj in enumerate(data):
+                data.attach(i, self.transition.preprocess_traj(trj))
+
         if minimizer is None:
             minimizer = minimize
         if params0 is None:

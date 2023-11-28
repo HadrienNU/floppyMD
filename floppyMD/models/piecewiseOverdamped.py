@@ -6,7 +6,6 @@ import numba as nb
 @nb.njit
 def linear_interpolation_with_gradient(idx, h, knots, fp):
     n_knots = knots.shape[0]
-    # x0, x1 = knots[idx - 1], knots[idx]
     f0, f1 = fp[idx - 1], fp[idx]
     # Second parameter set is in second half of array
     g0, g1 = fp[idx - 1 + n_knots], fp[idx + n_knots]
@@ -34,31 +33,77 @@ class OverdampedFreeEnergy(ModelOverdamped):
         self.beta = beta
         self._size_basis = self.basis.n_output_features_
 
+
+def preprocess_traj(self, trj, use_midpoint=False):
+    """Preprocess colvar trajectory with a given grid for faster model optimization
+
+    Args:
+        q (list of ndarray): trajectories of the CV.
+        knots (ndarray): CV values forming the knots of the piecewise-linear approximation of logD and gradF.
+
+    Returns:
+        traj (numba types list): list of tuples (bin indices, bin positions, displacements)
+    """
+
+    # TODO: enable subsampling by *averaging* biasing force in interval
+    # Then run inputting higher-res trajectories
+
+    deltaq = trj[1:] - trj[:-1]
+
+    if use_midpoint:
+        # Use mid point of each interval
+        # Implies a "leapfrog-style" integrator that is not really used for overdamped LE
+        ref_q = 0.5 * (trj[:-1] + trj[1:])
+    else:
+        # Truncate last traj point to match deltaq array
+        ref_q = trj[:-1]
+
+    # bin index on possibly irregular grid
+    idx = np.searchsorted(self.model.knots, ref_q)
+
+    assert (idx > 0).all() and (idx < len(self.model.knots)).all(), "Out-of-bounds point(s) in trajectory\n"
+    # # Other option: fold back out-of-bounds points - introduces biases
+    # idx = np.where(idx == 0, 1, idx)
+    # idx = np.where(idx == len(knots), len(knots) - 1, idx)
+
+    q0, q1 = self.model.knots[idx - 1], self.model.knots[idx]
+    # fractional position within the bin
+    h = (trj[:-1] - q0) / (q1 - q0)
+
+    # Numba prefers typed lists
+    return nb.typed.List((idx, h, deltaq))
+
     def force(self, x, t: float = 0.0):
-        G, logD, dXdk = linear_interpolation_with_gradient(idx, h, self.knots, self._params)
+        idx, h, _ = self.preprocess_traj(x)
+        G, logD, _ = linear_interpolation_with_gradient(idx, h, self.knots, self._params)
         return -self.beta * np.exp(logD) * G
 
     def diffusion(self, x, t: float = 0.0):
-        G, logD, dXdk = linear_interpolation_with_gradient(idx, h, self.knots, self._params)
+        idx, h, _ = self.preprocess_traj(x)
+        G, logD, _ = linear_interpolation_with_gradient(idx, h, self.knots, self._params)
         return 2.0 * np.exp(logD)
 
     def force_t(self, x, t: float = 0.0):
         return 0.0
 
     def force_x(self, x, t: float = 0.0):
+        idx, h, _ = self.preprocess_traj(x)
+        G, logD, dXdk = linear_interpolation_with_gradient(idx, h, self.knots, self._params)
         return np.dot(self._params[: self._size_basis], self.basis.derivative(x))
 
     def force_xx(self, x, t: float = 0.0):
-        return np.dot(self._params[: self._size_basis], self.basis.hessian(x))
+        return 0.0
 
     def diffusion_t(self, x, t: float = 0.0):
         return 0.0
 
     def diffusion_x(self, x, t: float = 0.0):
+        idx, h, _ = self.preprocess_traj(x)
+        G, logD, dXdk = linear_interpolation_with_gradient(idx, h, self.knots, self._params)
         return np.dot(self._params[self._size_basis :], self.basis.derivative(x))
 
     def diffusion_xx(self, x, t: float = 0.0):
-        return np.dot(self._params[self._size_basis :], self.basis.hessian(x))
+        return 0.0
 
     def is_linear(self):
         return True

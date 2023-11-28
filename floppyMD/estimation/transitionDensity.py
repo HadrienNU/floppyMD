@@ -1,3 +1,7 @@
+"""
+The code in this file is copied and adapted from pymle (https://github.com/jkirkby3/pymle)
+"""
+
 from abc import ABC, abstractmethod
 import numpy as np
 from typing import Union

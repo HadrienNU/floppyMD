@@ -1,3 +1,7 @@
+"""
+The code in this file is adapted from deeptime (https://github.com/deeptime-ml/deeptime/blob/main/deeptime/base.py)
+"""
+
 import numpy as np
 import abc
 
