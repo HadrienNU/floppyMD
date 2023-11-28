@@ -130,6 +130,21 @@ class Model(_BaseMethodsMixin):
 
         return copy.deepcopy(self)
 
+    @property
+    def params(self):
+        """Access the params"""
+        return self._params
+
+    @params.setter
+    def params(self, vals):
+        """Set parameters, used by fitter to move through param space"""
+        self._params = vals
+
+    @property
+    def is_linear(self) -> bool:
+        """Return True is the model is linear in its parameters"""
+        return False
+
 
 class Estimator(_BaseMethodsMixin):
     r"""Base class of all estimators

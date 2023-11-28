@@ -25,4 +25,4 @@ def test_likelihood_optimization(data, request, benchmark):
     estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerDensity(model))
     fitted_estimator = benchmark(estimator.fit, data, params0=[1.0, 1.0])
     model = fitted_estimator.fit_fetch(data)
-    assert model._fitted
+    assert model.fitted_

@@ -38,5 +38,5 @@ class KramersMoyalEstimator(Estimator):
             Reference to self.
         """
 
-        self.model.fitted_ = True
+        # self.model.fitted_ = True
         return self

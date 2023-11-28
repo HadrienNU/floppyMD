@@ -21,16 +21,6 @@ class ModelOverdamped(Model):
         self._params: Optional[np.ndarray] = None
         self.h = 1e-05
 
-    @property
-    def params(self):
-        """Access the params"""
-        return self._params
-
-    @params.setter
-    def params(self, vals):
-        """Set parameters, used by fitter to move through param space"""
-        self._params = vals
-
     @abstractmethod
     def force(self, x, t=0.0):
         """The force term of the model"""
@@ -49,11 +39,6 @@ class ModelOverdamped(Model):
     def has_exact_density(self) -> bool:
         """Return true if model has an exact density implemented"""
         return self._has_exact_density
-
-    @property
-    def is_linear(self) -> bool:
-        """Return True is the model is linear in its parameters"""
-        return False
 
     def exact_density(self, x0: float, xt: float, t0: float, dt: float = 0.0) -> float:
         """
@@ -217,49 +202,6 @@ class OverdampedBF(ModelOverdamped):
     """
 
     def __init__(self, basis, **kwargs):
-        super().__init__()
-        self.basis = basis
-        self._size_basis = self.basis.n_output_features_
-
-    def evaluate_basis(self, x):
-        """
-        Get access to basis
-        """
-
-    def force(self, x, t: float = 0.0):
-        return np.dot(self.basis(x), self._params[: self._size_basis]).reshape(-1, 1)
-
-    def diffusion(self, x, t: float = 0.0):
-        return np.dot(self.basis(x), self._params[self._size_basis :]).reshape(-1, 1)
-
-    def force_t(self, x, t: float = 0.0):
-        return 0.0
-
-    def force_x(self, x, t: float = 0.0):
-        return np.dot(self._params[: self._size_basis], self.basis.derivative(x))
-
-    def force_xx(self, x, t: float = 0.0):
-        return np.dot(self._params[: self._size_basis], self.basis.hessian(x))
-
-    def diffusion_t(self, x, t: float = 0.0):
-        return 0.0
-
-    def diffusion_x(self, x, t: float = 0.0):
-        return np.dot(self._params[self._size_basis :], self.basis.derivative(x))
-
-    def diffusion_xx(self, x, t: float = 0.0):
-        return np.dot(self._params[self._size_basis :], self.basis.hessian(x))
-
-    def is_linear(self):
-        return True
-
-
-class OverdampedFreeEnergy(ModelOverdamped):
-    """
-    TODO: A class that implement a overdamped model with a given free energy
-    """
-
-    def __init__(self, knots, **kwargs):
         super().__init__()
         self.basis = basis
         self._size_basis = self.basis.n_output_features_
