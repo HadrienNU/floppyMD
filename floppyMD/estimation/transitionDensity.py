@@ -27,6 +27,10 @@ class TransitionDensity(ABC):
     def model(self, model):
         self._model = model
 
+    @property
+    def do_preprocess_traj(self):
+        return False
+
     @abstractmethod
     def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """
