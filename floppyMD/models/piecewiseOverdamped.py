@@ -31,47 +31,46 @@ class OverdampedFreeEnergy(ModelOverdamped):
         super().__init__()
         self.knots = knots
         self.beta = beta
-        self._size_basis = self.basis.n_output_features_
+        self._size_basis = len(self.knots)
 
+    def preprocess_traj(self, trj, use_midpoint=False):
+        """Preprocess colvar trajectory with a given grid for faster model optimization
 
-def preprocess_traj(self, trj, use_midpoint=False):
-    """Preprocess colvar trajectory with a given grid for faster model optimization
+        Args:
+            q (list of ndarray): trajectories of the CV.
+            knots (ndarray): CV values forming the knots of the piecewise-linear approximation of logD and gradF.
 
-    Args:
-        q (list of ndarray): trajectories of the CV.
-        knots (ndarray): CV values forming the knots of the piecewise-linear approximation of logD and gradF.
+        Returns:
+            traj (numba types list): list of tuples (bin indices, bin positions, displacements)
+        """
 
-    Returns:
-        traj (numba types list): list of tuples (bin indices, bin positions, displacements)
-    """
+        # TODO: enable subsampling by *averaging* biasing force in interval
+        # Then run inputting higher-res trajectories
 
-    # TODO: enable subsampling by *averaging* biasing force in interval
-    # Then run inputting higher-res trajectories
+        deltaq = trj[1:] - trj[:-1]
 
-    deltaq = trj[1:] - trj[:-1]
+        if use_midpoint:
+            # Use mid point of each interval
+            # Implies a "leapfrog-style" integrator that is not really used for overdamped LE
+            ref_q = 0.5 * (trj[:-1] + trj[1:])
+        else:
+            # Truncate last traj point to match deltaq array
+            ref_q = trj[:-1]
 
-    if use_midpoint:
-        # Use mid point of each interval
-        # Implies a "leapfrog-style" integrator that is not really used for overdamped LE
-        ref_q = 0.5 * (trj[:-1] + trj[1:])
-    else:
-        # Truncate last traj point to match deltaq array
-        ref_q = trj[:-1]
+        # bin index on possibly irregular grid
+        idx = np.searchsorted(self.knots, ref_q)
 
-    # bin index on possibly irregular grid
-    idx = np.searchsorted(self.model.knots, ref_q)
+        assert (idx > 0).all() and (idx < len(self.knots)).all(), "Out-of-bounds point(s) in trajectory\n"
+        # # Other option: fold back out-of-bounds points - introduces biases
+        # idx = np.where(idx == 0, 1, idx)
+        # idx = np.where(idx == len(knots), len(knots) - 1, idx)
 
-    assert (idx > 0).all() and (idx < len(self.model.knots)).all(), "Out-of-bounds point(s) in trajectory\n"
-    # # Other option: fold back out-of-bounds points - introduces biases
-    # idx = np.where(idx == 0, 1, idx)
-    # idx = np.where(idx == len(knots), len(knots) - 1, idx)
+        q0, q1 = self.knots[idx - 1], self.knots[idx]
+        # fractional position within the bin
+        h = (trj[:-1] - q0) / (q1 - q0)
 
-    q0, q1 = self.model.knots[idx - 1], self.model.knots[idx]
-    # fractional position within the bin
-    h = (trj[:-1] - q0) / (q1 - q0)
-
-    # Numba prefers typed lists
-    return nb.typed.List((idx, h, deltaq))
+        # Numba prefers typed lists
+        return nb.typed.List((idx, h, deltaq))
 
     def force(self, x, t: float = 0.0):
         idx, h, _ = self.preprocess_traj(x)

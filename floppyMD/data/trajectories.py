@@ -1,15 +1,42 @@
 from collections.abc import MutableSequence
 import numpy as np
+import dask.array as da
 from ._data_statistics import traj_stats, sum_stats
 
 
+def Trajectory(x):
+    """
+    Create dict_like object that encaspulate the trajectory data
+    TODO: Use xarray DataSet?
+    """
+    return {"x": x}
+
+
 class Trajectories(MutableSequence):
-    def __init__(self, dt=None):
+    """
+    Set of trajectories
+    """
+
+    def __init__(self, dt=None, data_key="x"):
         self.dt = dt
         self.trajectories_data = []
-        self.extra_data = []
-        self.dim = 1
+        self.dim = None
+        self.data_key = data_key
         self.stats_data = None
+
+    def _check_data(self, v):
+        """ """
+        if isinstance(v, np.ndarray) or isinstance(v, da.Array):
+            v = Trajectory(v)
+        if len(v[self.data_key].shape) == 1:
+            dim_x = 1
+        else:
+            dim_x = v[self.data_key].shape[-1]
+        if self.dim is None:
+            self.dim = dim_x
+        elif self.dim != dim_x:
+            raise ValueError("Inconsitent dimension between previously stored trajectory and currently added trajectory")
+        return v
 
     def __len__(self):
         return len(self.trajectories_data)
@@ -19,18 +46,15 @@ class Trajectories(MutableSequence):
 
     def __delitem__(self, i):
         del self.trajectories_data[i]
-        del self.extra_data[i]
 
     def __setitem__(self, i, v):
-        self.trajectories_data[i] = (v, {})
-        self.extra_data[i] = {}
+        self.trajectories_data[i] = self._check_data(v)
 
     def insert(self, i, v):
-        self.trajectories_data.insert(i, (v, {}))
-        self.extra_data.insert(i, {})
+        self.trajectories_data.insert(i, self._check_data(v))
 
     def __str__(self):
-        return ["Trajectory of length {} and dimension {}. Extra data are {}".format(len(trj), trj[0].shape[1], list(trj[1].keys())) for trj in self.trajectories_data]
+        return ["Trajectory of length {} and dimension {}.".format(len(trj), self.dim) for trj in self.trajectories_data]
 
     @property
     def stats(self):
@@ -38,9 +62,9 @@ class Trajectories(MutableSequence):
         Basic statistics on the data
         """
         if self.stats_data is None:
-            self.stats_data = traj_stats(self.trajectories_data[0])
+            self.stats_data = traj_stats(self.trajectories_data[0][self.data_key])
             for trj in self.trajectories_data[1:]:
-                self.stats_data = sum_stats(self.stats_data, traj_stats(trj))
+                self.stats_data = sum_stats(self.stats_data, traj_stats(trj[self.data_key]))
         return self.stats_data
 
     @property
@@ -54,6 +78,6 @@ class Trajectories(MutableSequence):
         raise NotImplementedError
 
     @classmethod
-    def from_xarray(traj_list, traj_key="x"):
+    def from_xarray(traj_list, data_key="x"):
         """Take as input a list of xarray Dataset"""
         raise NotImplementedError

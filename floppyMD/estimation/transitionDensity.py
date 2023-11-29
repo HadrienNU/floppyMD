@@ -52,7 +52,7 @@ class TransitionDensity(ABC):
         Compute Likelihood of one trajectory
         """
         self._model.params = params
-        return -np.sum(np.log(np.maximum(self._min_prob, self._density(x0=trj[:-1], xt=trj[1:], t0=0.0, dt=dt))))
+        return -np.sum(np.log(np.maximum(self._min_prob, self._density(x0=trj["x"][:-1], xt=trj["x"][1:], t0=0.0, dt=dt))))
 
 
 class ExactDensity(TransitionDensity):

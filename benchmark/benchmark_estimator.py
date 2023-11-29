@@ -15,6 +15,7 @@ def data(request):
     trj_list = floppyMD.Trajectories(dt=trj[1, 0] - trj[0, 0])
     for i in range(1, trj.shape[1]):
         trj_list.append(trj[:, 1:2])
+    trj_list.stats
     return trj_list
 
 
@@ -24,5 +25,16 @@ def test_likelihood_optimization(data, request, benchmark):
     model = floppyMD.models.OverdampedBF(bf)
     estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerDensity(model))
     fitted_estimator = benchmark(estimator.fit, data, params0=[1.0, 1.0])
+    model = fitted_estimator.fit_fetch(data)
+    assert model.fitted_
+
+
+@pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
+def test_numba_optimized(data, request, benchmark):
+    n_knots = 20
+    epsilon = 1e-10
+    model = floppyMD.models.OverdampedFreeEnergy(np.linspace(data.stats.min - epsilon, data.stats.max + epsilon, 15), 1.0)
+    estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerNumbaOptimizedDensity(model))
+    fitted_estimator = benchmark(estimator.fit, data, params0=np.concatenate((np.zeros(n_knots), np.zeros(n_knots) + 1.0)))
     model = fitted_estimator.fit_fetch(data)
     assert model.fitted_

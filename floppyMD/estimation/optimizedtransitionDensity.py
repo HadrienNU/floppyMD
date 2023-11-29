@@ -1,11 +1,11 @@
 import numpy as np
 import numba as nb
 
-from .transitionDensity import TransitionDensity
+from .transitionDensity import EulerDensity
 from ..models.piecewiseOverdamped import linear_interpolation_with_gradient
 
 
-class EulerNumbaOptimizedDensity(TransitionDensity):
+class EulerNumbaOptimizedDensity(EulerDensity):
     def __init__(self, model):
         """
         Class which represents the exact transition density for a model (when available)

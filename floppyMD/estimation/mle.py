@@ -101,7 +101,7 @@ class LikelihoodEstimator(Estimator):
 
         if self.transition.do_preprocess_traj:
             for i, trj in enumerate(data):
-                data.attach(i, self.transition.preprocess_traj(trj))
+                trj["preprocess"] = self.transition.preprocess_traj(trj["x"])
 
         if minimizer is None:
             minimizer = minimize
