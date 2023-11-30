@@ -16,21 +16,20 @@ class Trajectories(MutableSequence):
     Set of trajectories
     """
 
-    def __init__(self, dt=None, data_key="x"):
+    def __init__(self, dt=None):
         self.dt = dt
         self.trajectories_data = []
         self.dim = None
-        self.data_key = data_key
         self.stats_data = None
 
     def _check_data(self, v):
         """ """
         if not isinstance(v, Mapping):
             v = Trajectory(v, self.dt)
-        if len(v[self.data_key].shape) == 1:
+        if len(v["x"].shape) == 1:
             dim_x = 1
         else:
-            dim_x = v[self.data_key].shape[-1]
+            dim_x = v["x"].shape[-1]
         if self.dim is None:
             self.dim = dim_x
         elif self.dim != dim_x:
@@ -63,9 +62,9 @@ class Trajectories(MutableSequence):
         Basic statistics on the data
         """
         if self.stats_data is None:
-            self.stats_data = traj_stats(self.trajectories_data[0][self.data_key])
+            self.stats_data = traj_stats(self.trajectories_data[0]["x"])
             for trj in self.trajectories_data[1:]:
-                self.stats_data = sum_stats(self.stats_data, traj_stats(trj[self.data_key]))
+                self.stats_data = sum_stats(self.stats_data, traj_stats(trj["x"]))
         return self.stats_data
 
     @property
