@@ -29,11 +29,11 @@ class OverdampedFreeEnergy(ModelOverdamped):
 
     def __init__(self, knots, beta, **kwargs):
         super().__init__()
-        self.knots = knots
+        self.knots = knots.ravel()
         self.beta = beta
         self._size_basis = len(self.knots)
 
-    def preprocess_traj(self, trj, use_midpoint=False):
+    def preprocess_traj(self, x, use_midpoint=False, **kwargs):
         """Preprocess colvar trajectory with a given grid for faster model optimization
 
         Args:
@@ -46,7 +46,7 @@ class OverdampedFreeEnergy(ModelOverdamped):
 
         # TODO: enable subsampling by *averaging* biasing force in interval
         # Then run inputting higher-res trajectories
-
+        trj = x.ravel()
         deltaq = trj[1:] - trj[:-1]
 
         if use_midpoint:
@@ -59,7 +59,6 @@ class OverdampedFreeEnergy(ModelOverdamped):
 
         # bin index on possibly irregular grid
         idx = np.searchsorted(self.knots, ref_q)
-
         assert (idx > 0).all() and (idx < len(self.knots)).all(), "Out-of-bounds point(s) in trajectory\n"
         # # Other option: fold back out-of-bounds points - introduces biases
         # idx = np.where(idx == 0, 1, idx)
@@ -70,7 +69,7 @@ class OverdampedFreeEnergy(ModelOverdamped):
         h = (trj[:-1] - q0) / (q1 - q0)
 
         # Numba prefers typed lists
-        return nb.typed.List((idx, h, deltaq))
+        return (idx, h, deltaq)
 
     def force(self, x, t: float = 0.0):
         idx, h, _ = self.preprocess_traj(x)

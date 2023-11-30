@@ -17,13 +17,18 @@ class EulerNumbaOptimizedDensity(EulerDensity):
     def do_preprocess_traj(self):
         return True
 
+    @property
+    def has_jac(self):
+        return True
+
     def preprocess_traj(self, trj, **kwargs):
         """
         Preprocess trajectories data
         """
-        return self.model.preprocess_traj(trj, **kwargs)
+        trj["pre"] = self.model.preprocess_traj(trj["x"], **kwargs)
+        return trj
 
-    def __call__(self, params, trj, dt):
+    def __call__(self, weight, trj, params):
         """
         The exact transition density (when applicable)
         Note: this will raise exception if the model does not implement exact_density
@@ -33,7 +38,7 @@ class EulerNumbaOptimizedDensity(EulerDensity):
         :param dt: float, the time step between x0 and xt
         :return: probability (same dimension as x0 and xt)
         """
-        return objective_order1_debiased(params, self.model.knots, trj, dt, self.model.beta)
+        return objective_order1_debiased(params, self.model.knots, trj["pre"], trj["dt"], self.model.beta, None) / weight
 
 
 @nb.njit(parallel=True)
@@ -52,7 +57,7 @@ def objective_order1_debiased(params, knots, traj, dt, beta, f):
         real, ndarray: objective function and its derivatives with respect to model parameters
     """
 
-    idx, h, deltaq = traj[i]
+    idx, h, deltaq = traj
     G, logD, dXdk = linear_interpolation_with_gradient(idx, h, knots, params)
     # dXdk is the gradient with respect to the knots (same for all quantities)
 

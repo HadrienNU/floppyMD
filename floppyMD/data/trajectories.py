@@ -1,15 +1,14 @@
-from collections.abc import MutableSequence
+from collections.abc import MutableSequence, Mapping
 import numpy as np
-import dask.array as da
 from ._data_statistics import traj_stats, sum_stats
 
 
-def Trajectory(x):
+def Trajectory(x, dt):
     """
     Create dict_like object that encaspulate the trajectory data
     TODO: Use xarray DataSet?
     """
-    return {"x": x}
+    return {"x": x, "dt": dt}
 
 
 class Trajectories(MutableSequence):
@@ -26,8 +25,8 @@ class Trajectories(MutableSequence):
 
     def _check_data(self, v):
         """ """
-        if isinstance(v, np.ndarray) or isinstance(v, da.Array):
-            v = Trajectory(v)
+        if not isinstance(v, Mapping):
+            v = Trajectory(v, self.dt)
         if len(v[self.data_key].shape) == 1:
             dim_x = 1
         else:
@@ -36,6 +35,8 @@ class Trajectories(MutableSequence):
             self.dim = dim_x
         elif self.dim != dim_x:
             raise ValueError("Inconsitent dimension between previously stored trajectory and currently added trajectory")
+        if self.dt is None:
+            self.dt = v["dt"]
         return v
 
     def __len__(self):
@@ -70,6 +71,10 @@ class Trajectories(MutableSequence):
     @property
     def nobs(self):
         return np.sum([len(trj) for trj in self.trajectories_data])
+
+    @property
+    def weights(self):
+        return np.array([len(trj) for trj in self.trajectories_data])
 
     def to_xarray(self):
         """

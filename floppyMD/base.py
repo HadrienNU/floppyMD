@@ -160,8 +160,13 @@ class Estimator(_BaseMethodsMixin):
         capable of updating models, this can be used to resume the estimation process.
     """
 
-    def __init__(self, model=None):
+    def __init__(self, model=None, n_jobs=1):
         self._model = model
+        self.n_jobs = int(n_jobs)
+        if self.n_jobs <= 1:
+            self._loop_over_trajs = self._loop_over_trajs_serial
+        else:
+            self._loop_over_trajs = self._loop_over_trajs_parallel
 
     @abc.abstractmethod
     def fit(self, data, **kwargs):
@@ -209,6 +214,33 @@ class Estimator(_BaseMethodsMixin):
         """
         self.fit(data, **kwargs)
         return self.fetch_model()
+
+    def _loop_over_trajs_serial(self, func, weights, data, *args, **kwargs):
+        """
+        A generator for iteration over trajectories
+        """
+        # Et voir alors pour faire une version parallélisé (en distribué)
+        array_res = [func(weight, trj, *args, **kwargs) for weight, trj in zip(weights, data)]
+        res = [0.0] * len(array_res[0])
+        weightsum = weights.sum()
+        for weight, single_res in zip(weights, array_res):
+            for i, arr in enumerate(single_res):
+                res[i] += arr * weight / weightsum
+        return res
+
+    def _loop_over_trajs_parallel(self, func, weights, data, *args, **kwargs):
+        """
+        A generator for iteration over trajectories
+        """
+        from joblib import Parallel, delayed
+
+        array_res = Parallel(n_jobs=self.n_jobs)(delayed(func)(weight, trj, *args, **kwargs) for weight, trj in zip(weights, data))
+        res = [0.0] * len(array_res[0])
+        weightsum = weights.sum()
+        for weight, single_res in zip(weights, array_res):
+            for i, arr in enumerate(single_res):
+                res[i] += arr * weight / weightsum
+        return res
 
     @property
     def model(self):

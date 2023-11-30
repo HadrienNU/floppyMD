@@ -79,9 +79,8 @@ class LikelihoodEstimator(Estimator):
     def __init__(self, transition, **kwargs):
         super().__init__(transition.model)
         self.transition = transition
-        self._likelihood = self._likelihood_serial
 
-    def fit(self, data, minimizer=None, params0=None, **kwargs):
+    def fit(self, data, minimizer=None, params0=None, use_jac=True, **kwargs):
         r"""Fits data to the estimator's internal :class:`Model` and overwrites it. This way, every call to
         :meth:`fetch_model` yields an autonomous model instance. Sometimes a :code:`partial_fit` method is available,
         in which case the model can get updated by the estimator.
@@ -101,13 +100,16 @@ class LikelihoodEstimator(Estimator):
 
         if self.transition.do_preprocess_traj:
             for i, trj in enumerate(data):
-                trj["preprocess"] = self.transition.preprocess_traj(trj["x"])
+                self.transition.preprocess_traj(trj)
 
         if minimizer is None:
             minimizer = minimize
         if params0 is None:
             raise NotImplementedError  # We could use then an exact estimation
-        res = minimizer(self._likelihood, params0, args=(data, data.dt), method="L-BFGS-B")
+        if self.transition.has_jac and use_jac:
+            res = minimizer(self._log_likelihood_negative_with_jac, params0, args=(data,), jac=True, method="L-BFGS-B")
+        else:
+            res = minimizer(self._log_likelihood_negative, params0, args=(data,), method="L-BFGS-B")
         params = res.x
 
         final_like = -res.fun
@@ -119,20 +121,11 @@ class LikelihoodEstimator(Estimator):
 
         return self
 
-    def _likelihood_serial(self, params, data, dt, **kwargs):
-        """
-        Sum over trajectories
-        """
-        return np.sum([self._log_likelihood_negative(params, trj, dt) for trj in data])
+    def _log_likelihood_negative(self, params, data, **kwargs):
+        return self._loop_over_trajs(self.transition, data.weights, data, params, **kwargs)[0]
 
-    def _likelihood_parallel(self, params, data, dt, **kwargs):
-        """
-        Sum over trajectories
-        """
-
-    def _log_likelihood_negative(self, params, data, dt, **kwargs):
-        """ """
-        return self.transition(params, data, dt)
+    def _log_likelihood_negative_with_jac(self, params, data, **kwargs):
+        return self._loop_over_trajs(self.transition, data.weights, data, params, **kwargs)
 
 
 class ELBOEstimator(LikelihoodEstimator):

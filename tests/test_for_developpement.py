@@ -18,26 +18,13 @@ def data(request):
     return trj_list
 
 
-@pytest.mark.skip(reason="no way of currently testing this")
-@pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
-def test_direct_estimator(data, request):
-    bf = floppyMD.function_basis.Linear().fit(data)
-    model = floppyMD.models.OverdampedBF(bf)
-    estimator = floppyMD.KramersMoyalEstimator(model)
-    model = estimator.fit_fetch(data)
-    assert model.fitted_
-
-
-@pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
-def test_likelihood_estimator(data, request):
-    bf = floppyMD.function_basis.Linear().fit(data)
-    model = floppyMD.models.OverdampedBF(bf)
-    estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerDensity(model))
-    model = estimator.fit_fetch(data, params0=[1.0, 1.0])
-    assert model.fitted_
-
-
-@pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
+@pytest.mark.parametrize(
+    "data",
+    [
+        "numpy",
+    ],
+    indirect=True,
+)
 def test_numba_likelihood_estimator(data, request):
     n_knots = 20
     epsilon = 1e-10

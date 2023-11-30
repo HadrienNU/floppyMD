@@ -35,6 +35,10 @@ class TransitionDensity(ABC):
     def do_preprocess_traj(self):
         return False
 
+    @property
+    def has_jac(self):
+        return False
+
     @abstractmethod
     def _density(self, x0: Union[float, np.ndarray], xt: Union[float, np.ndarray], t0: Union[float, np.ndarray], dt: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """
@@ -47,12 +51,12 @@ class TransitionDensity(ABC):
         """
         raise NotImplementedError
 
-    def __call__(self, params, trj, dt):
+    def __call__(self, weight, trj, params):
         """
         Compute Likelihood of one trajectory
         """
         self._model.params = params
-        return -np.sum(np.log(np.maximum(self._min_prob, self._density(x0=trj["x"][:-1], xt=trj["x"][1:], t0=0.0, dt=dt))))
+        return (-np.sum(np.log(np.maximum(self._min_prob, self._density(x0=trj["x"][:-1], xt=trj["x"][1:], t0=0.0, dt=trj["dt"])))) / weight,)
 
 
 class ExactDensity(TransitionDensity):
@@ -181,7 +185,7 @@ class ElerianDensity(EulerDensity):
         """
         sig_x = self._model.diffusion_x(x0, t0)
         if (isinstance(x0, np.ndarray) and (sig_x == 0).any) or (not isinstance(x0, np.ndarray) and sig_x == 0):
-            return super().__call__(x0=x0, xt=xt, t0=t0, dt=dt)
+            return super()._density(x0=x0, xt=xt, t0=t0, dt=dt)
 
         sig = self._model.diffusion(x0, t0)
         mu = self._model.force(x0, t0)
