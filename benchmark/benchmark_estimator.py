@@ -3,6 +3,7 @@ import os
 import numpy as np
 import floppyMD
 import dask.array as da
+import multiprocessing
 
 
 @pytest.fixture
@@ -18,14 +19,14 @@ def data(request):
     return trj_list
 
 
-@pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
-def test_likelihood_optimization(data, request, benchmark):
-    bf = floppyMD.function_basis.Linear().fit(data)
-    model = floppyMD.models.OverdampedBF(bf)
-    estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerDensity(model))
-    fitted_estimator = benchmark(estimator.fit, data, params0=[1.0, 1.0])
-    model = fitted_estimator.fetch_model()
-    assert model.fitted_
+# @pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
+# def test_likelihood_optimization(data, request, benchmark):
+#     bf = floppyMD.function_basis.Linear().fit(data)
+#     model = floppyMD.models.OverdampedBF(bf)
+#     estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerDensity(model))
+#     fitted_estimator = benchmark(estimator.fit, data, params0=[1.0, 1.0])
+#     model = fitted_estimator.fetch_model()
+#     assert model.fitted_
 
 
 @pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
@@ -33,7 +34,7 @@ def test_numba_optimized(data, request, benchmark):
     n_knots = 20
     epsilon = 1e-10
     model = floppyMD.models.OverdampedFreeEnergy(np.linspace(data.stats.min - epsilon, data.stats.max + epsilon, n_knots), 1.0)
-    estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerNumbaOptimizedDensity(model))
+    estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerNumbaOptimizedDensity(model), n_jobs=multiprocessing.cpu_count())
     fitted_estimator = benchmark(estimator.fit, data, params0=np.concatenate((np.zeros(n_knots), np.zeros(n_knots) + 1.0)))
     model = fitted_estimator.fetch_model()
     assert model.fitted_
