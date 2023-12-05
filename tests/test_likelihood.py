@@ -18,31 +18,23 @@ def data(request):
     return trj_list
 
 
-@pytest.mark.skip(reason="no way of currently testing this")
 @pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
-def test_direct_estimator(data, request):
+def test_likelihood_bf(data, request):
     bf = floppyMD.function_basis.Linear().fit(data)
     model = floppyMD.models.OverdampedBF(bf)
-    estimator = floppyMD.KramersMoyalEstimator(model)
-    model = estimator.fit_fetch(data)
-    assert model.fitted_
-
-
-@pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
-def test_likelihood_estimator(data, request):
-    bf = floppyMD.function_basis.Linear().fit(data)
-    model = floppyMD.models.OverdampedBF(bf)
-    estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerDensity(model))
-    model = estimator.fit_fetch(data, coefficients0=[1.0, 1.0])
-    assert model.fitted_
+    transition = floppyMD.EulerDensity(model)
+    loglikelihood = transition(data.weights[0], data[0], np.array([1.0, 1.0]))
+    assert len(loglikelihood) == 1
 
 
 @pytest.mark.parametrize("data", ["numpy"], indirect=True)
-def test_numba_likelihood_estimator(data, request):
+def test_numba_optimized(data, request, benchmark):
     n_knots = 20
     epsilon = 1e-10
     model = floppyMD.models.OverdampedFreeEnergy(np.linspace(data.stats.min - epsilon, data.stats.max + epsilon, n_knots), 1.0)
-    estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerNumbaOptimizedDensity(model))
-
-    model = estimator.fit_fetch(data, coefficients0=np.concatenate((np.zeros(n_knots), np.zeros(n_knots) + 1.0)))
-    assert model.fitted_
+    transition = floppyMD.EulerNumbaOptimizedDensity(model)
+    for i, trj in enumerate(data):
+        transition.preprocess_traj(trj)
+    # Assert preprocessing as well
+    loglikelihood = transition(data.weights[0], data[0], np.concatenate((np.zeros(n_knots), np.zeros(n_knots) + 1.0)))
+    assert len(loglikelihood) == 2

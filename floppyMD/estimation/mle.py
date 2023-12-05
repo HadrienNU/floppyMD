@@ -13,35 +13,35 @@ from ..base import Estimator
 
 
 class EstimatedResult(object):
-    def __init__(self, params: np.ndarray, log_like: float, sample_size: int):
+    def __init__(self, coefficients: np.ndarray, log_like: float, sample_size: int):
         """
         Container for the result of estimation
-        :param params: array, the estimated (optimal) params
+        :param coefficients: array, the estimated (optimal) coefficients
         :param log_like: float, the final log-likelihood value (at optimum)
         :param sample_size: int, the size of sample used in estimation (don't include S0)
         """
-        self.params = params
+        self.coefficients = coefficients
         self.log_like = log_like
         self.sample_size = sample_size
 
     @property
     def likelihood(self) -> float:
-        """The likelihood with estimated params"""
+        """The likelihood with estimated coefficients"""
         return np.exp(self.log_like)
 
     @property
     def aic(self) -> float:
-        """The AIC (Aikake Information Criteria) with estimated params"""
-        return 2 * (len(self.params) - self.log_like)
+        """The AIC (Aikake Information Criteria) with estimated coefficients"""
+        return 2 * (len(self.coefficients) - self.log_like)
 
     @property
     def bic(self) -> float:
-        """The BIC (Bayesian Information Criteria) with estimated params"""
-        return len(self.params) * np.log(self.sample_size) - 2 * self.log_like
+        """The BIC (Bayesian Information Criteria) with estimated coefficients"""
+        return len(self.coefficients) * np.log(self.sample_size) - 2 * self.log_like
 
     def __str__(self):
         """String representation of the class (for pretty printing the results)"""
-        return f"\nparams      | {self.params} \n" f"sample size | {self.sample_size} \n" f"likelihood  | {self.log_like} \n" f"AIC         | {self.aic}\n" f"BIC         | {self.bic}"
+        return f"\ncoefficients      | {self.coefficients} \n" f"sample size | {self.sample_size} \n" f"likelihood  | {self.log_like} \n" f"AIC         | {self.aic}\n" f"BIC         | {self.bic}"
 
 
 class CallbackFunctor:
@@ -84,7 +84,7 @@ class LikelihoodEstimator(Estimator):
         super().__init__(transition.model)
         self.transition = transition
 
-    def fit(self, data, minimizer=None, params0=None, use_jac=True, **kwargs):
+    def fit(self, data, minimizer=None, coefficients0=None, use_jac=True, **kwargs):
         r"""Fits data to the estimator's internal :class:`Model` and overwrites it. This way, every call to
         :meth:`fetch_model` yields an autonomous model instance. Sometimes a :code:`partial_fit` method is available,
         in which case the model can get updated by the estimator.
@@ -105,33 +105,33 @@ class LikelihoodEstimator(Estimator):
         if self.transition.do_preprocess_traj:
             for trj in data:
                 self.transition.preprocess_traj(trj)
-        if params0 is None:
+        if coefficients0 is None:
             raise NotImplementedError  # We could use then an exact estimation
 
         if minimizer is None:
-            params0 = np.asarray(params0)
+            coefficients0 = np.asarray(coefficients0)
             minimizer = minimize
 
         if self.transition.has_jac and use_jac:
-            res = minimizer(self._log_likelihood_negative_with_jac, params0, args=(data,), jac=True, method="L-BFGS-B")
+            res = minimizer(self._log_likelihood_negative_with_jac, coefficients0, args=(data,), jac=True, method="L-BFGS-B")
         else:
-            res = minimizer(self._log_likelihood_negative, params0, args=(data,), method="L-BFGS-B")
-        params = res.x
+            res = minimizer(self._log_likelihood_negative, coefficients0, args=(data,), method="L-BFGS-B")
+        coefficients = res.x
 
         final_like = -res.fun
 
-        self.model.params = params
+        self.model.coefficients = coefficients
         self.model.fitted_ = True
 
-        self.results_ = EstimatedResult(params=params, log_like=final_like, sample_size=data.nobs - 1)
+        self.results_ = EstimatedResult(coefficients=coefficients, log_like=final_like, sample_size=data.nobs - 1)
 
         return self
 
-    def _log_likelihood_negative(self, params, data, **kwargs):
-        return self._loop_over_trajs(self.transition, data.weights, data, params, **kwargs)[0]
+    def _log_likelihood_negative(self, coefficients, data, **kwargs):
+        return self._loop_over_trajs(self.transition, data.weights, data, coefficients, **kwargs)[0]
 
-    def _log_likelihood_negative_with_jac(self, params, data, **kwargs):
-        return self._loop_over_trajs(self.transition, data.weights, data, params, **kwargs)
+    def _log_likelihood_negative_with_jac(self, coefficients, data, **kwargs):
+        return self._loop_over_trajs(self.transition, data.weights, data, coefficients, **kwargs)
 
 
 class ELBOEstimator(LikelihoodEstimator):
@@ -143,11 +143,11 @@ class ELBOEstimator(LikelihoodEstimator):
     def __init__(self, model=None, transition=None, **kwargs):
         super().__init__(model)
 
-    def _log_likelihood_negative(self, params, data, **kwargs):
-        return self._loop_over_trajs(self.transition.loglikelihood_w_correction, data.weights, data, params, **kwargs)[0]
+    def _log_likelihood_negative(self, coefficients, data, **kwargs):
+        return self._loop_over_trajs(self.transition.loglikelihood_w_correction, data.weights, data, coefficients, **kwargs)[0]
 
-    def _log_likelihood_negative_with_jac(self, params, data, **kwargs):
-        return self._loop_over_trajs(self.transition.loglikelihood_w_correction, data.weights, data, params, **kwargs)
+    def _log_likelihood_negative_with_jac(self, coefficients, data, **kwargs):
+        return self._loop_over_trajs(self.transition.loglikelihood_w_correction, data.weights, data, coefficients, **kwargs)
 
 
 class EMEstimator(LikelihoodEstimator):
@@ -181,7 +181,7 @@ class EMEstimator(LikelihoodEstimator):
 
         self.no_stop = no_stop
 
-    def fit(self, data, minimizer=None, params0=None, use_jac=True, **kwargs):
+    def fit(self, data, minimizer=None, coefficients0=None, use_jac=True, **kwargs):
         """
         In this do a loop that alternatively minimize and compute expectation
         """
@@ -189,11 +189,11 @@ class EMEstimator(LikelihoodEstimator):
         if self.transition.do_preprocess_traj:
             for trj in data:
                 self.transition.preprocess_traj(trj)
-        if params0 is None:
+        if coefficients0 is None:
             raise NotImplementedError  # We could use then an exact estimation
 
         if minimizer is None:
-            params = np.asarray(params0)
+            coefficients = np.asarray(coefficients0)
             minimizer = minimize
 
         # if we enable warm_start, we will have a unique initialisation
@@ -215,7 +215,7 @@ class EMEstimator(LikelihoodEstimator):
         for init in range(n_init):
             coeff_list_init = []
             if do_init:
-                params = self._initialize_parameters(params0)  # Need to randomize initial params if multiple run
+                coefficients = self._initialize_parameters(coefficients0)  # Need to randomize initial coefficients if multiple run
             self._print_verbose_msg_init_beg(init)
             lower_bound = -np.infty if do_init else self.lower_bound_
             lower_bound_m_step = -np.infty
@@ -229,26 +229,26 @@ class EMEstimator(LikelihoodEstimator):
                 if self.verbose >= 2:
                     if lower_bound - lower_bound_m_step < 0:
                         print("Delta ll after E step:", lower_bound - lower_bound_m_step)
-                curr_coeffs = self.model.params
+                curr_coeffs = self.model.coefficients
                 curr_coeffs["ll"] = lower_bound
                 coeff_list_init.append(curr_coeffs)
                 # M Step
                 if self.transition.has_jac and use_jac:
-                    res = minimizer(self._log_likelihood_negative_with_jac, params0, args=(data,), jac=True, method="L-BFGS-B")
+                    res = minimizer(self._log_likelihood_negative_with_jac, coefficients0, args=(data,), jac=True, method="L-BFGS-B")
                 else:
-                    res = minimizer(self._log_likelihood_negative, params0, args=(data,), method="L-BFGS-B")
-                params = res.x
+                    res = minimizer(self._log_likelihood_negative, coefficients0, args=(data,), method="L-BFGS-B")
+                coefficients = res.x
 
                 lower_bound_m_step = -res.fun
                 if self.verbose >= 2 and lower_bound_m_step - lower_bound < 0:
                     print("Delta ll after M step:", lower_bound_m_step - lower_bound)
-                if np.isnan(lower_bound_m_step) or not np.isfinite(np.sum(params)):  # If we have nan value we simply restart the iteration
+                if np.isnan(lower_bound_m_step) or not np.isfinite(np.sum(coefficients)):  # If we have nan value we simply restart the iteration
                     warnings.warn(
                         "Initialization %d has NaN values. Ends iteration" % (init),
                         ConvergenceWarning,
                     )
                     if self.verbose >= 2:
-                        print(self.model.params)
+                        print(self.model.coefficients)
                         print("ll: {}".format(lower_bound))
                     break
 
@@ -258,7 +258,7 @@ class EMEstimator(LikelihoodEstimator):
 
                 if lower_bound > max_lower_bound:
                     max_lower_bound = lower_bound
-                    best_coeffs = self.model.params
+                    best_coeffs = self.model.coefficients
                     best_n_iter = n_iter
                     best_n_init = init
 
@@ -275,7 +275,7 @@ class EMEstimator(LikelihoodEstimator):
                     ConvergenceWarning,
                 )
         if best_coeffs is not None:
-            self.model.params = best_coeffs
+            self.model.coefficients = best_coeffs
         self.n_iter_ = best_n_iter
         self.n_best_init_ = best_n_init
         self.lower_bound_ = max_lower_bound
@@ -291,7 +291,7 @@ class EMEstimator(LikelihoodEstimator):
             self._iter_prev_time = self._init_prev_time
         if self.verbose >= 3:
             print("----------------Current parameters values------------------")
-            print(self.model.params)
+            print(self.model.coefficients)
 
     def _print_verbose_msg_iter_end(self, n_iter, diff_ll, log_likelihood):
         """Print verbose message on initialization."""
@@ -313,7 +313,7 @@ class EMEstimator(LikelihoodEstimator):
                 self._iter_prev_time = cur_time
             if self.verbose >= 3:
                 print("----------------Current parameters values------------------")
-                print(self.model.params)
+                print(self.model.coefficients)
 
     def _print_verbose_msg_init_end(self, ll, best_iter):
         """Print verbose message on the end of iteration."""
@@ -322,7 +322,7 @@ class EMEstimator(LikelihoodEstimator):
         elif self.verbose >= 2:
             print("Initialization converged: %s at step %i \t time lapse %.5fs\t ll %.5f" % (self.converged_, best_iter, time() - self._init_prev_time, ll))
             print("----------------Current parameters values------------------")
-            print(self.model.params)
+            print(self.model.coefficients)
 
     def _print_verbose_msg_fit_end(self, ll, best_init, best_iter):
         """Print verbose message on the end of iteration."""
@@ -340,4 +340,4 @@ class EMEstimator(LikelihoodEstimator):
                 )
             )
             print("----------------Fitted parameters values------------------")
-            print(self.model.params)
+            print(self.model.coefficients)

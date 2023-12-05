@@ -24,7 +24,7 @@ def data(request):
 #     bf = floppyMD.function_basis.Linear().fit(data)
 #     model = floppyMD.models.OverdampedBF(bf)
 #     estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerDensity(model))
-#     fitted_estimator = benchmark(estimator.fit, data, params0=[1.0, 1.0])
+#     fitted_estimator = benchmark(estimator.fit, data, coefficients0=[1.0, 1.0])
 #     model = fitted_estimator.fetch_model()
 #     assert model.fitted_
 
@@ -35,6 +35,6 @@ def test_numba_optimized(data, request, benchmark):
     epsilon = 1e-10
     model = floppyMD.models.OverdampedFreeEnergy(np.linspace(data.stats.min - epsilon, data.stats.max + epsilon, n_knots), 1.0)
     estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerNumbaOptimizedDensity(model), n_jobs=multiprocessing.cpu_count())
-    fitted_estimator = benchmark(estimator.fit, data, params0=np.concatenate((np.zeros(n_knots), np.zeros(n_knots) + 1.0)))
+    fitted_estimator = benchmark(estimator.fit, data, coefficients0=np.concatenate((np.zeros(n_knots), np.zeros(n_knots) + 1.0)))
     model = fitted_estimator.fetch_model()
     assert model.fitted_

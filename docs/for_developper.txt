@@ -1,0 +1,18 @@
+A transformer en une vrai page de documentation
+
+
+En gros on doit expliquer:
+
+
+Les données d'entrée, c'est quoi le format
+
+
+L'estimation, comme ça gère le reste
+
+Les transitions density pour le likelihood
+
+
+Les modèles, c'est quoi un modèle,
+
+A chaque fois, il faut donner l'arbre d'héritage comme ça on voit bien  https://www.sphinx-doc.org/en/master/usage/extensions/inheritance.html
+Et on donne le pattern d'implémentation, les élements qui doivent exister dans la class

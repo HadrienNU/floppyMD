@@ -31,5 +31,5 @@ def test_numba_likelihood_estimator(data, request):
     model = floppyMD.models.OverdampedFreeEnergy(np.linspace(data.stats.min - epsilon, data.stats.max + epsilon, n_knots), 1.0)
     estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerNumbaOptimizedDensity(model))
 
-    model = estimator.fit_fetch(data, params0=np.concatenate((np.zeros(n_knots), np.zeros(n_knots) + 1.0)))
+    model = estimator.fit_fetch(data, coefficients0=np.concatenate((np.zeros(n_knots), np.zeros(n_knots) + 1.0)))
     assert model.fitted_

@@ -1,8 +1,8 @@
 import numpy as np
 import numba as nb
 
-from .transitionDensity import EulerDensity
-from ..models.piecewiseOverdamped import linear_interpolation_with_gradient
+from .overdamped_transitionDensity import EulerDensity
+from ..models.piecewise_overdamped import linear_interpolation_with_gradient
 
 
 class EulerNumbaOptimizedDensity(EulerDensity):
@@ -28,7 +28,7 @@ class EulerNumbaOptimizedDensity(EulerDensity):
         trj["pre"] = self.model.preprocess_traj(trj["x"], **kwargs)
         return trj
 
-    def __call__(self, weight, trj, params):
+    def __call__(self, weight, trj, coefficients):
         """
         The exact transition density (when applicable)
         Note: this will raise exception if the model does not implement exact_density
@@ -38,16 +38,16 @@ class EulerNumbaOptimizedDensity(EulerDensity):
         :param dt: float, the time step between x0 and xt
         :return: probability (same dimension as x0 and xt)
         """
-        return objective_order1_debiased(params, self.model.knots, trj["pre"], trj["dt"], self.model.beta, None) / weight
+        return objective_order1_debiased(coefficients, self.model.knots, trj["pre"], trj["dt"], self.model.beta, None) / weight
 
 
 @nb.njit(parallel=True)
-def objective_order1_debiased(params, knots, traj, dt, beta, f):
+def objective_order1_debiased(coefficients, knots, traj, dt, beta, f):
     """Objective function: order-1 OptLE for overdamped Langevin, order-1 propagator
     Includes the debiasing feature of Hallegot, Pietrucci and Hénin for time-dependent biases
 
     Args:
-        params (ndarray): parameters of the model - piecewise-linear grad F (free energy) and log D
+        coefficients (ndarray): parameters of the model - piecewise-linear grad F (free energy) and log D
         knots (ndarray): CV values forming the knots of the piecewise-linear approximation of logD and gradF
         q (list of ndarray): trajectories of the CV
         deltaq (list of ndarray): trajectories of CV differences
@@ -58,7 +58,7 @@ def objective_order1_debiased(params, knots, traj, dt, beta, f):
     """
 
     idx, h, deltaq = traj
-    G, logD, dXdk = linear_interpolation_with_gradient(idx, h, knots, params)
+    G, logD, dXdk = linear_interpolation_with_gradient(idx, h, knots, coefficients)
     # dXdk is the gradient with respect to the knots (same for all quantities)
 
     # Debiasing (truncate last traj point)

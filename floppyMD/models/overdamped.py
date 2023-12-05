@@ -18,7 +18,7 @@ class ModelOverdamped(Model):
         :param has_exact_density: bool, set to true if an exact density is implemented
         """
         self._has_exact_density = has_exact_density
-        self._params: Optional[np.ndarray] = None
+        self._coefficients: Optional[np.ndarray] = None
         self.h = 1e-05
 
     @abstractmethod
@@ -69,6 +69,42 @@ class ModelOverdamped(Model):
         raise NotImplementedError
 
     # ==============================
+    # Direct acces to parameters (Not Imlemented By Default)
+    # ==============================
+
+    @property
+    def coefficients_force(self):
+        """Access the coefficients"""
+        return self._coefficients[: self._n_coeffs_force]
+
+    @coefficients_force.setter
+    def coefficients_force(self, vals):
+        """Set parameters, used by fitter to move through param space"""
+        self._coefficients[: self._n_coeffs_force] = vals
+
+    @property
+    def coefficients_diffusion(self):
+        """Access the coefficients"""
+        return self._coefficients[self._n_coeffs_force :]
+
+    @coefficients_diffusion.setter
+    def coefficients_diffusion(self, vals):
+        """Set parameters, used by fitter to move through param space"""
+        self._coefficients[self._n_coeffs_force :] = vals
+
+    def force_jac_coeffs(self, x, t: float = 0.0):
+        """
+        Jacobien of the force with respect to coefficients
+        """
+        raise NotImplementedError
+
+    def diffusion_jac_coeffs(self, x, t: float = 0.0):
+        """
+        Jacobien of the diffusion with respect to coefficients
+        """
+        raise NotImplementedError
+
+    # ==============================
     # Derivatives (Numerical By Default)
     # ==============================
 
@@ -105,24 +141,27 @@ class BrownianMotion(ModelOverdamped):
         sigma(X,t) = sigma   (constant, >0)
     """
 
+    _n_coeffs_force = 1
+
     def __init__(self, **kwargs):
         super().__init__(has_exact_density=True, default_sim_method="Exact")
+        self.coefficients = np.array([0.0, 1.0])
 
     def force(self, x, t: float = 0.0):
-        return self._params[0] * (x > -10000)  # todo: reshape?
+        return self._coefficients[0] * (x > -10000)  # todo: reshape?
 
     def diffusion(self, x, t: float = 0.0):
-        return self._params[1] * (x > -10000)
+        return self._coefficients[1] * (x > -10000)
 
     def exact_density(self, x0: float, xt: float, t0: float, dt: float = 0.0) -> float:
-        mu, sigma = self._params
+        mu, sigma = self._coefficients
         mean_ = x0 + mu * dt
         return norm.pdf(xt, loc=mean_, scale=sigma * np.sqrt(dt))
 
     def exact_step(self, t: float, dt: float, x, dZ):
         """Simple Brownian motion can be simulated exactly"""
-        sig_sq_dt = self._params[1] * np.sqrt(dt)
-        return x + self._params[0] * dt + sig_sq_dt * dZ
+        sig_sq_dt = self._coefficients[1] * np.sqrt(dt)
+        return x + self._coefficients[0] * dt + sig_sq_dt * dZ
 
     # =======================
     # (Optional) Overrides for numerical derivatives to improve performance
@@ -150,24 +189,27 @@ class OrnsteinUhlenbeck(ModelOverdamped):
         sigma(X,t) = sigma * X
     """
 
+    _n_coeffs_force = 2
+
     def __init__(self, **kwargs):
         super().__init__(has_exact_density=True)
+        self.coefficients = np.array([0.0, 0.0, 1.0])
 
     def force(self, x, t: float = 0.0):
-        return self._params[0] * (self._params[1] - x)
+        return self._coefficients[0] * (self._coefficients[1] - x)
 
     def diffusion(self, x, t: float = 0.0):
-        return self._params[2] * (x > -10000)
+        return self._coefficients[2] * (x > -10000)
 
     def exact_density(self, x0: float, xt: float, t0: float, dt: float = 0.0) -> float:
-        kappa, theta, sigma = self._params
+        kappa, theta, sigma = self._coefficients
         mu = theta + (x0 - theta) * np.exp(-kappa * dt)
         # mu = X0*np.exp(-kappa*t) + theta*(1 - np.exp(-kappa*t))
         var = (1 - np.exp(-2 * kappa * dt)) * (sigma * sigma / (2 * kappa))
         return norm.pdf(xt, loc=mu, scale=np.sqrt(var))
 
     def AitSahalia_density(self, x0: float, xt: float, t0: float, dt: float = 0.0) -> float:
-        kappa, alpha, eta = self._params
+        kappa, alpha, eta = self._coefficients
         m = 1
         x = xt
 
@@ -204,36 +246,44 @@ class OverdampedBF(ModelOverdamped):
     def __init__(self, basis, **kwargs):
         super().__init__()
         self.basis = basis
-        self._size_basis = self.basis.n_output_features_
-
-    def evaluate_basis(self, x):
-        """
-        Get access to basis
-        """
+        self._n_coeffs_force = self.basis.n_output_features_
+        self.coefficients = np.concatenate((np.zeros(self._n_coeffs_force), np.ones(self._n_coeffs_force)))
 
     def force(self, x, t: float = 0.0):
-        return np.dot(self.basis(x), self._params[: self._size_basis]).reshape(-1, 1)
+        return np.dot(self.basis(x), self.coefficients_force).reshape(-1, 1)
 
     def diffusion(self, x, t: float = 0.0):
-        return np.dot(self.basis(x), self._params[self._size_basis :]).reshape(-1, 1)
+        return np.dot(self.basis(x), self.coefficients_diffusion).reshape(-1, 1)
 
     def force_t(self, x, t: float = 0.0):
         return 0.0
 
     def force_x(self, x, t: float = 0.0):
-        return np.dot(self._params[: self._size_basis], self.basis.derivative(x))
+        return np.dot(self.coefficients_force, self.basis.derivative(x))
 
     def force_xx(self, x, t: float = 0.0):
-        return np.dot(self._params[: self._size_basis], self.basis.hessian(x))
+        return np.dot(self.coefficients_force, self.basis.hessian(x))
 
     def diffusion_t(self, x, t: float = 0.0):
         return 0.0
 
     def diffusion_x(self, x, t: float = 0.0):
-        return np.dot(self._params[self._size_basis :], self.basis.derivative(x))
+        return np.dot(self.coefficients_diffusion, self.basis.derivative(x))
 
     def diffusion_xx(self, x, t: float = 0.0):
-        return np.dot(self._params[self._size_basis :], self.basis.hessian(x))
+        return np.dot(self.coefficients_diffusion, self.basis.hessian(x))
 
     def is_linear(self):
         return True
+
+    def force_jac_coeffs(self, x, t: float = 0.0):
+        """
+        Jacobien of the force with respect to coefficients
+        """
+        raise self.basis(x)
+
+    def diffusion_jac_coeffs(self, x, t: float = 0.0):
+        """
+        Jacobien of the diffusion with respect to coefficients
+        """
+        raise self.basis(x)

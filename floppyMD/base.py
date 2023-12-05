@@ -135,14 +135,14 @@ class Model(_BaseMethodsMixin):
         return copy.deepcopy(self)
 
     @property
-    def params(self):
-        """Access the params"""
-        return self._params
+    def coefficients(self):
+        """Access the coefficients"""
+        return self._coefficients
 
-    @params.setter
-    def params(self, vals):
+    @coefficients.setter
+    def coefficients(self, vals):
         """Set parameters, used by fitter to move through param space"""
-        self._params = vals
+        self._coefficients = vals
 
     @property
     def is_linear(self) -> bool:

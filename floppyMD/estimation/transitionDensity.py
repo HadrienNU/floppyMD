@@ -54,9 +54,9 @@ class TransitionDensity(ABC):
         """
         raise NotImplementedError
 
-    def __call__(self, weight, trj, params):
+    def __call__(self, weight, trj, coefficients):
         """
         Compute Likelihood of one trajectory
         """
-        self._model.params = params
+        self._model.coefficients = coefficients
         return (-np.sum(np.maximum(self._min_prob, self._logdensity(x0=trj["x"][:-1], xt=trj["x"][1:], t0=0.0, dt=trj["dt"]))) / weight,)

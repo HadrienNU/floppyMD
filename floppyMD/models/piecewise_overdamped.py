@@ -31,7 +31,8 @@ class OverdampedFreeEnergy(ModelOverdamped):
         super().__init__()
         self.knots = knots.ravel()
         self.beta = beta
-        self._size_basis = len(self.knots)
+        self._n_coeffs_force = len(self.knots)
+        self.coefficients = np.concatenate((np.zeros(self._n_coeffs_force), np.ones(self._n_coeffs_force)))
 
     def preprocess_traj(self, x, use_midpoint=False, **kwargs):
         """Preprocess colvar trajectory with a given grid for faster model optimization
@@ -73,12 +74,12 @@ class OverdampedFreeEnergy(ModelOverdamped):
 
     def force(self, x, t: float = 0.0):
         idx, h, _ = self.preprocess_traj(x)
-        G, logD, _ = linear_interpolation_with_gradient(idx, h, self.knots, self._params)
+        G, logD, _ = linear_interpolation_with_gradient(idx, h, self.knots, self._coefficients)
         return -self.beta * np.exp(logD) * G
 
     def diffusion(self, x, t: float = 0.0):
         idx, h, _ = self.preprocess_traj(x)
-        G, logD, _ = linear_interpolation_with_gradient(idx, h, self.knots, self._params)
+        G, logD, _ = linear_interpolation_with_gradient(idx, h, self.knots, self._coefficients)
         return 2.0 * np.exp(logD)
 
     def force_t(self, x, t: float = 0.0):
@@ -86,8 +87,8 @@ class OverdampedFreeEnergy(ModelOverdamped):
 
     def force_x(self, x, t: float = 0.0):
         idx, h, _ = self.preprocess_traj(x)
-        G, logD, dXdk = linear_interpolation_with_gradient(idx, h, self.knots, self._params)
-        return np.dot(self._params[: self._size_basis], self.basis.derivative(x))
+        G, logD, dXdk = linear_interpolation_with_gradient(idx, h, self.knots, self._coefficients)
+        return np.dot(self._coefficients[: self._n_coeffs_force], self.basis.derivative(x))
 
     def force_xx(self, x, t: float = 0.0):
         return 0.0
@@ -97,8 +98,8 @@ class OverdampedFreeEnergy(ModelOverdamped):
 
     def diffusion_x(self, x, t: float = 0.0):
         idx, h, _ = self.preprocess_traj(x)
-        G, logD, dXdk = linear_interpolation_with_gradient(idx, h, self.knots, self._params)
-        return np.dot(self._params[self._size_basis :], self.basis.derivative(x))
+        G, logD, dXdk = linear_interpolation_with_gradient(idx, h, self.knots, self._coefficients)
+        return np.dot(self._coefficients[self._n_coeffs_force :], self.basis.derivative(x))
 
     def diffusion_xx(self, x, t: float = 0.0):
         return 0.0
