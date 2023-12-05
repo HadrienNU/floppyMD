@@ -13,6 +13,8 @@ Les transitions density pour le likelihood
 
 
 Les modèles, c'est quoi un modèle,
+Notamment un modèle doit s'initialiser avec des paramètres par défauts (éventuellement aléatoire) de façon à pouvoir l'appeler tout de suite.
+Cela fournit également des paramètres initiaux pour l'optimisation en l'absence d'alternative
 
 A chaque fois, il faut donner l'arbre d'héritage comme ça on voit bien  https://www.sphinx-doc.org/en/master/usage/extensions/inheritance.html
 Et on donne le pattern d'implémentation, les élements qui doivent exister dans la class

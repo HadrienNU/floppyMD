@@ -106,8 +106,8 @@ class LikelihoodEstimator(Estimator):
             for trj in data:
                 self.transition.preprocess_traj(trj)
         if coefficients0 is None:
-            raise NotImplementedError  # We could use then an exact estimation
-
+            coefficients0 = self.model.coefficients
+            # TODO, use exact optimisation to provide first set of parameters
         if minimizer is None:
             coefficients0 = np.asarray(coefficients0)
             minimizer = minimize
