@@ -12,17 +12,17 @@ def data(request):
     if request.param == "dask":
         trj = da.from_array(trj)
     trj_list = floppyMD.Trajectories(dt=trj[1, 0] - trj[0, 0])
-    for i in range(1, trj.shape[1]):
-        trj_list.append(trj[:, 1:2])
+    trj_list.append(trj[:, 1:2])
     trj_list.stats
     return trj_list
 
 
 @pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
-def test_likelihood_bf(data, request):
+@pytest.mark.parametrize("transitioncls", [floppyMD.EulerDensity, floppyMD.OzakiDensity, floppyMD.ShojiOzakiDensity, floppyMD.ElerianDensity, floppyMD.KesslerDensity, floppyMD.DrozdovDensity])
+def test_likelihood_bf(data, request, transitioncls):
     bf = floppyMD.function_basis.Linear().fit(data)
     model = floppyMD.models.OverdampedBF(bf)
-    transition = floppyMD.EulerDensity(model)
+    transition = transitioncls(model)
     loglikelihood = transition(data.weights[0], data[0], np.array([1.0, 1.0]))
     assert len(loglikelihood) == 1
 

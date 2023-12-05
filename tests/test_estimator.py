@@ -13,12 +13,11 @@ def data(request):
         trj = da.from_array(trj)
     trj_list = floppyMD.Trajectories(dt=trj[1, 0] - trj[0, 0])
     for i in range(1, trj.shape[1]):
-        trj_list.append(trj[:, 1:2])
+        trj_list.append(trj[:, i : (i + 1)])
     trj_list.stats
     return trj_list
 
 
-@pytest.mark.skip(reason="no way of currently testing this")
 @pytest.mark.parametrize("data", ["numpy", "dask"], indirect=True)
 def test_direct_estimator(data, request):
     bf = floppyMD.function_basis.Linear().fit(data)
