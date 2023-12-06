@@ -52,7 +52,7 @@ class ModelOverdamped(Model):
         """
         raise NotImplementedError
 
-    def exact_step(self, t: float, dt: float, x, dZ):
+    def exact_step(self, x, dt, dZ, t=0.0):
         """Exact Simulation Step, Implement if known (e.g. Browian motion or GBM)"""
         raise NotImplementedError
 
@@ -146,7 +146,7 @@ class BrownianMotion(ModelOverdamped):
         mean_ = x0 + mu * dt
         return norm.pdf(xt, loc=mean_, scale=np.sqrt(sigma2 * dt))
 
-    def exact_step(self, t: float, dt: float, x, dZ):
+    def exact_step(self, x, dt, dZ, t=0.0):
         """Simple Brownian motion can be simulated exactly"""
         sig_sq_dt = np.sqrt(self._coefficients[1] * dt)
         return x + self._coefficients[0] * dt + sig_sq_dt * dZ
@@ -188,7 +188,7 @@ class OrnsteinUhlenbeck(ModelOverdamped):
     dX(t) = mu(X,t)*dt + sigma(X,t)*dW_t
 
     where:
-        mu(X,t)    = kappa * (mu - X)
+        mu(X,t)    = kappa * (theta - X)
         sigma(X,t) = sqrt(sigma)
     """
 
@@ -196,7 +196,7 @@ class OrnsteinUhlenbeck(ModelOverdamped):
 
     def __init__(self, **kwargs):
         super().__init__(has_exact_density=True)
-        self.coefficients = np.array([0.0, 0.0, 1.0])
+        self.coefficients = np.array([1.0, 0.0, 1.0])
 
     def force(self, x, t: float = 0.0):
         return self._coefficients[0] * (self._coefficients[1] - x)
@@ -210,6 +210,12 @@ class OrnsteinUhlenbeck(ModelOverdamped):
         # mu = X0*np.exp(-kappa*t) + theta*(1 - np.exp(-kappa*t))
         var = (1 - np.exp(-2 * kappa * dt)) * (sigma / (2 * kappa))
         return norm.pdf(xt, loc=mu, scale=np.sqrt(var))
+
+    def exact_step(self, x, dt, dZ, t=0.0):
+        kappa, theta, sigma = self._coefficients
+        mu = theta + (x - theta) * np.exp(-kappa * dt)
+        var = (1 - np.exp(-2 * kappa * dt)) * (sigma / (2 * kappa))
+        return mu * dt + np.sqrt(var * dt) * dZ
 
     # =======================
     # (Optional) Overrides for numerical derivatives to improve performance

@@ -9,3 +9,5 @@ from .estimation import *
 from .models import *
 
 from . import function_basis
+
+from .simulations import Simulator

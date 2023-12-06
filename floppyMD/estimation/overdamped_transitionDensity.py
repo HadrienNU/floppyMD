@@ -26,6 +26,9 @@ class ExactDensity(TransitionDensity):
         """
         return self._model.exact_density(x0=x0, xt=xt, t0=t0, dt=dt)
 
+    def run_step(self, x, dt, dW):
+        return self._model.exact_step(x, dt, dW)
+
 
 class EulerDensity(TransitionDensity):
     def __init__(self, model):
@@ -47,6 +50,10 @@ class EulerDensity(TransitionDensity):
         sig2t = (self._model.diffusion(x0, t0).ravel()) * 2 * dt
         mut = x0.ravel() + self._model.force(x0, t0).ravel() * dt
         return -((xt.ravel() - mut) ** 2) / sig2t - 0.5 * np.log(np.pi * sig2t)
+
+    def run_step(self, x, dt, dW, t=0.0):
+        sig_sq_dt = np.sqrt(self._model.diffusion(x, t) * dt)
+        return x + self._model.force(x, t) * dt + sig_sq_dt * dW
 
 
 class OzakiDensity(TransitionDensity):

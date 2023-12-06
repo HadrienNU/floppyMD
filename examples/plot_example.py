@@ -12,17 +12,17 @@ How to run memory kernel estimation
 import numpy as np
 import matplotlib.pyplot as plt
 
-import floppyMD
+import floppyMD as fl
 
 # Trouver comment on rentre les données
 trj = np.loadtxt("example_2d.trj")
-data = floppyMD.Trajectories(dt=trj[1, 0] - trj[0, 0])
+data = fl.Trajectories(dt=trj[1, 0] - trj[0, 0])
 for i in range(1, trj.shape[1]):
     data.append(trj[:, 1:2])
 
-bf = floppyMD.function_basis.Linear().fit(data)
-model = floppyMD.models.OverdampedBF(bf)
-estimator = floppyMD.LikelihoodEstimator(floppyMD.EulerDensity(model))
+bf = fl.function_basis.Linear().fit(data)
+model = fl.models.OverdampedBF(bf)
+estimator = fl.LikelihoodEstimator(fl.EulerDensity(model))
 model = estimator.fit_fetch(data, params0=[1.0, 1.0])
 
 # To find a correct parametrization of the space
